@@ -107,11 +107,15 @@ The platform decouples raw pixel ingestion, deep geometric feature extraction, t
 
 In high-stakes breast cancer screening triage, the clinical objective function is dictated by the extreme asymmetry of misclassification costs:
 
-$$\mathcal{L}_{\text{clinical}} = C_{\text{FN}} \cdot \mathbb{I}(y = 1, \hat{y} = 0) + C_{\text{FP}} \cdot \mathbb{I}(y = 0, \hat{y} = 1), \quad \text{where } C_{\text{FN}} \gg C_{\text{FP}}$$
+$$
+\mathcal{L}_{\text{clinical}} = C_{\text{FN}} \cdot \mathbb{I}(y = 1, \, \hat{y} = 0) + C_{\text{FP}} \cdot \mathbb{I}(y = 0, \, \hat{y} = 1), \quad \text{where } C_{\text{FN}} \gg C_{\text{FP}}
+$$
 
 A false negative represents a missed malignant neoplasm with potential progression to metastatic disease, whereas a false positive merely induces diagnostic secondary imaging or biopsy recall. Consequently, operational safety requires setting decision thresholds to maximize true positive coverage:
 
-$$\text{Sensitivity (Recall)} = \frac{\sum_{i=1}^N y_i \cdot \hat{y}_i}{\sum_{i=1}^N y_i} = \frac{\text{TP}}{\text{TP} + \text{FN}}$$
+$$
+\text{Sensitivity (Recall)} = \frac{\sum_{i=1}^N y_i \cdot \hat{y}_i}{\sum_{i=1}^N y_i} = \frac{\text{TP}}{\text{TP} + \text{FN}}
+$$
 
 ### Benchmark Cohort Evaluation
 
@@ -119,7 +123,7 @@ Under rigorous, quarantined evaluation on the independent holdout cohort compris
 
 | Operational Metric | Evaluated Cohort Value | Clinical Specification & Triage Implication |
 |:---|:---:|:---|
-| **Cancer Detection Sensitivity (Recall)** | **97.01%** | **65 out of 67 confirmed malignancies detected.** The dual-view attentional fusion architecture captured $97.01\%$ of all pathological tissue transformations. All cases failing initial primary consensus were automatically isolated and triaged to human radiological specialists via the supervisory deferral corridor. |
+| **Cancer Detection Sensitivity (Recall)** | **97.01%** | **65 out of 67 confirmed malignancies detected.** The dual-view attentional fusion architecture captured **97.01%** of all pathological tissue transformations. All cases failing initial primary consensus were automatically isolated and triaged to human radiological specialists via the supervisory deferral corridor. |
 
 > [!IMPORTANT]
 > **Strict Metric Scope Notice:**
@@ -138,55 +142,81 @@ Raw DICOM ──► Photometric Decoupling ──► Otsu Tissue Mask ──► 
 ### 3.1 Radiometric Calibration & Polarity Normalization
 Mammograms encoded with `PhotometricInterpretation = "MONOCHROME1"` map high radiopacity (dense tissue) to low numerical pixel intensities. To normalize input manifolds for standard convolutional feature extraction, we execute an exact linear inversion over the valid pixel domain $\Omega_{\text{valid}}$:
 
-$$I_{\text{norm}}(x,y) = \begin{cases} I_{\max} + I_{\min} - I_{\text{raw}}(x,y), & \text{if } \text{Photometric} = \text{MONOCHROME1} \\ I_{\text{raw}}(x,y), & \text{if } \text{Photometric} = \text{MONOCHROME2} \end{cases}$$
+$$
+I_{\text{norm}}(x,y) = \begin{cases} I_{\max} + I_{\min} - I_{\text{raw}}(x,y), & \text{if } \text{Photometric} = \text{MONOCHROME1} \\ I_{\text{raw}}(x,y), & \text{if } \text{Photometric} = \text{MONOCHROME2} \end{cases}
+$$
 
 Pixels outside the active detector collimation field or marked by non-finite IEEE-754 states (`NaN`, `Inf`) are sanitized via logical masking:
 
-$$\Omega_{\text{valid}} = \left\{ (x,y) \in \Omega \mid I_{\text{raw}}(x,y) \in \mathbb{R}_{\text{finite}} \land I_{\text{raw}}(x,y) \ne p_{\text{pad}} \right\}$$
+$$
+\Omega_{\text{valid}} = \left\{ (x,y) \in \Omega \mid I_{\text{raw}}(x,y) \in \mathbb{R} \land I_{\text{raw}}(x,y) \ne p_{\text{pad}} \right\}
+$$
 
 ### 3.2 Dynamic Bi-Level Otsu Segmentation
 To extract the anatomical breast parenchyma from background direct-exposure detector zones, we compute the optimal global threshold $t^*$ maximizing between-class histogram variance over 256 discrete bins:
 
-$$\sigma_B^2(t) = \omega_0(t)\,\omega_1(t)\left[\mu_0(t) - \mu_1(t)\right]^2$$
+$$
+\sigma_B^2(t) = \omega_0(t)\,\omega_1(t)\left[\mu_0(t) - \mu_1(t)\right]^2
+$$
 
-$$\omega_0(t) = \sum_{i=0}^t p_i, \quad \omega_1(t) = \sum_{i=t+1}^{255} p_i, \quad \mu_0(t) = \sum_{i=0}^t \frac{i \cdot p_i}{\omega_0(t)}, \quad \mu_1(t) = \sum_{i=t+1}^{255} \frac{i \cdot p_i}{\omega_1(t)}$$
+$$
+\omega_0(t) = \sum_{i=0}^t p_i, \quad \omega_1(t) = \sum_{i=t+1}^{255} p_i, \quad \mu_0(t) = \sum_{i=0}^t \frac{i \cdot p_i}{\omega_0(t)}, \quad \mu_1(t) = \sum_{i=t+1}^{255} \frac{i \cdot p_i}{\omega_1(t)}
+$$
 
-$$t^* = \underset{0 \le t < 255}{\arg\max} \; \sigma_B^2(t)$$
+$$
+t^* = \underset{0 \le t < 255}{\arg\max} \; \sigma_B^2(t)
+$$
 
 The binary mask is defined by $\mathcal{M}_{\text{initial}}(x,y) = \mathbb{I}\left(I_{\text{u8}}(x,y) > t^*\right)$.
 
 ### 3.3 Morphological Closing & Connected Component Pruning
 To prevent tissue fracturing across retro-areolar and skin boundary zones, the binary mask undergoes morphological closing with a discrete 2D isotropic flat structuring element $B_{k \times k}$ with kernel radius $k = 5$:
 
-$$\mathcal{M}_{\text{closed}} = \mathcal{M} \bullet B = (\mathcal{M} \oplus B) \ominus B$$
+$$
+\mathcal{M}_{\text{closed}} = \mathcal{M} \bullet B = (\mathcal{M} \oplus B) \ominus B
+$$
 
-$$\left[\mathcal{M} \oplus B\right](x,y) = \sup_{(u,v) \in B} \mathcal{M}(x-u, y-v)$$
+$$
+\left[\mathcal{M} \oplus B\right](x,y) = \sup_{(u,v) \in B} \mathcal{M}(x-u, \, y-v)
+$$
 
-$$\left[\mathcal{M} \ominus B\right](x,y) = \inf_{(u,v) \in B} \mathcal{M}(x+u, y+v)$$
+$$
+\left[\mathcal{M} \ominus B\right](x,y) = \inf_{(u,v) \in B} \mathcal{M}(x+u, \, y+v)
+$$
 
 Connected component analysis (CCA) evaluates all disjoint connected regions $\mathcal{C} = \{C_1, C_2, \dots, C_m\}$. The primary breast component $C_{\max} = \arg\max_j |C_j|$ is retained subject to the mass preservation constraint:
 
-$$\rho = \frac{|C_{\max}|}{\sum_{j=1}^m |C_j|} \ge 0.80$$
+$$
+\rho = \frac{|C_{\max}|}{\sum_{j=1}^m |C_j|} \ge 0.80
+$$
 
 Spurious secondary components satisfying $|C_j| < 0.20 \cdot |C_{\max}|$ (such as radio-opaque collimator markers, technician tags, or chest-wall artefacts) are strictly eliminated.
 
 ### 3.4 Aspect-Ratio Preserving Affine Pad & Bounding Spatial Extraction
 The spatial bounding box $\left[y_{\min}, x_{\min}, y_{\max}, x_{\max}\right]$ surrounding the segmented parenchyma is extracted and expanded by a contextual margin fraction $\delta = 0.02$:
 
-$$y_{\min}^* = \max(0, \, y_{\min} - \delta \cdot H), \quad y_{\max}^* = \min(H, \, y_{\max} + \delta \cdot H)$$
+$$
+y_{\min}^* = \max(0, \, y_{\min} - \delta \cdot H), \quad y_{\max}^* = \min(H, \, y_{\max} + \delta \cdot H)
+$$
 
-$$x_{\min}^* = \max(0, \, x_{\min} - \delta \cdot W), \quad x_{\max}^* = \min(W, \, x_{\max} + \delta \cdot W)$$
+$$
+x_{\min}^* = \max(0, \, x_{\min} - \delta \cdot W), \quad x_{\max}^* = \min(W, \, x_{\max} + \delta \cdot W)
+$$
 
 The resulting sub-raster is resized via bilinear interpolation to canonical resolution $\mathbb{R}^{512 \times 512}$ with zero-padded boundaries preserving the natural anatomical aspect ratio without geometric distortion.
 
 ### 3.5 Contrast-Limited Adaptive Histogram Equalization (CLAHE)
 To maximize local visual conspicuity of occult microcalcification clusters and architectural distortions embedded within dense fibroglandular stroma, the image undergoes localized histogram redistribution across an $8 \times 8$ contextual tile grid. The transformation redistributes excessive local contrast spikes using a Rayleigh clipping parameter $\beta = 2.0$:
 
-$$h_{\text{clipped}}(i) = \min\left(h(i), \, \frac{N_{\text{pixels}}}{N_{\text{bins}}} \cdot \beta\right)$$
+$$
+h_{\text{clipped}}(i) = \min\left(h(i), \, \frac{N_{\text{pixels}}}{N_{\text{bins}}} \cdot \beta\right)
+$$
 
 The excess clipped pixels are uniformly redistributed across the histogram bins prior to computing the cumulative distribution function (CDF), followed by bilinear inter-tile interpolation to eliminate boundary discontinuity artifacts. The final tensor satisfies:
 
-$$\mathbf{I} \in \mathbb{R}^{1 \times 512 \times 512}, \quad \forall (x,y): \mathbf{I}(x,y) \in [0.0, 1.0], \quad \mathbf{I} \sim \text{float32}$$
+$$
+\mathbf{I} \in \mathbb{R}^{1 \times 512 \times 512}, \quad \forall (x,y): \mathbf{I}(x,y) \in [0.0, 1.0], \quad \mathbf{I} \sim \text{float32}
+$$
 
 ---
 
@@ -197,22 +227,32 @@ Clinical screening protocols acquire two orthogonal ipsilateral projections: the
 
 Rather than processing projections independently or using ad-hoc average pooling, our architecture implements a parameter-shared convolutional encoder $\mathcal{B}_\theta$ (`tf_efficientnet_lite0`, global average pooled, $C_{\text{out}} = 1280$):
 
-$$\mathbf{f}_{\text{CC}} = \mathcal{B}_\theta(\mathbf{I}_{\text{CC}}) \in \mathbb{R}^{1280}, \quad \mathbf{f}_{\text{MLO}} = \mathcal{B}_\theta(\mathbf{I}_{\text{MLO}}) \in \mathbb{R}^{1280}$$
+$$
+\mathbf{f}_{\text{CC}} = \mathcal{B}_\theta(\mathbf{I}_{\text{CC}}) \in \mathbb{R}^{1280}, \quad \mathbf{f}_{\text{MLO}} = \mathcal{B}_\theta(\mathbf{I}_{\text{MLO}}) \in \mathbb{R}^{1280}
+$$
 
 Both views are processed within a unified batched forward pass $[\mathbf{I}_{\text{CC}} \,\|\, \mathbf{I}_{\text{MLO}}] \in \mathbb{R}^{2B \times 1 \times 512 \times 512}$ to optimize GPU memory bandwidth and ensure identical convolutional gradient updates across orthogonal projections.
 
 ### 4.2 Learned Two-View Attention Fusion Manifold
 The extracted visual embeddings $\mathbf{f}_{\text{CC}}$ and $\mathbf{f}_{\text{MLO}}$ are stacked into an ipsilateral tensor $\mathbf{F} \in \mathbb{R}^{B \times 2 \times 1280}$. A learned attention mechanism dynamically evaluates the relative salience of each projection:
 
-$$\mathbf{h}_v = \tanh\left(\mathbf{W}_a \mathbf{f}_v + \mathbf{b}_a\right) \in \mathbb{R}^{128}, \quad v \in \{\text{CC}, \text{MLO}\}$$
+$$
+\mathbf{h}_v = \tanh\left(\mathbf{W}_a \mathbf{f}_v + \mathbf{b}_a\right) \in \mathbb{R}^{128}, \quad v \in \{\text{CC}, \text{MLO}\}
+$$
 
-$$s_v = \mathbf{v}_a^T \mathbf{h}_v \in \mathbb{R}$$
+$$
+s_v = \mathbf{v}_a^T \mathbf{h}_v \in \mathbb{R}
+$$
 
-$$\alpha_v = \frac{\exp(s_v)}{\exp(s_{\text{CC}}) + \exp(s_{\text{MLO}})}, \quad \text{where } \alpha_{\text{CC}} + \alpha_{\text{MLO}} = 1.0$$
+$$
+\alpha_v = \frac{\exp(s_v)}{\exp(s_{\text{CC}}) + \exp(s_{\text{MLO}})}, \quad \text{where } \alpha_{\text{CC}} + \alpha_{\text{MLO}} = 1.0
+$$
 
 The fused representation concatenates the attention-weighted projection embeddings:
 
-$$\mathbf{f}_{\text{fused}} = \left[ \alpha_{\text{CC}} \cdot \mathbf{f}_{\text{CC}} \;\Big\|\; \alpha_{\text{MLO}} \cdot \mathbf{f}_{\text{MLO}} \right] \in \mathbb{R}^{2560}$$
+$$
+\mathbf{f}_{\text{fused}} = \left[ \alpha_{\text{CC}} \cdot \mathbf{f}_{\text{CC}} \;\Big\|\; \alpha_{\text{MLO}} \cdot \mathbf{f}_{\text{MLO}} \right] \in \mathbb{R}^{2560}
+$$
 
 This formulation guarantees that if a lesion is obscured by dense fibroglandular parenchyma in the CC view but conspicous in the MLO view, the network dynamically shifts its attentional focus ($\alpha_{\text{MLO}} \to 1.0$) without degrading the unified representation.
 
@@ -241,32 +281,52 @@ To mirror radiologist diagnostic workflows, the fused feature embedding $\mathbf
     z_mal in R^1               z_mar in R^4         z_calc in R^5              z_bi in R^3
 ```
 
-1. **Binary Malignancy Head ($\mathcal{H}_{\text{mal}}$):**
-   Decoupled scalar projection predicting pathological malignancy:
-   $$z_{\text{mal}} = \mathbf{W}_2 \left( \text{Dropout}_{0.3} \left( \text{SiLU}\left(\text{BN}\left(\mathbf{W}_1 \mathbf{f}_{\text{fused}}\right)\right) \right) \right) + b_2 \in \mathbb{R}^1$$
-   $$p_{\text{mal}} = \sigma(z_{\text{mal}}) = \frac{1}{1 + e^{-z_{\text{mal}}}}$$
+#### Head 1: Binary Malignancy Detection ($\mathcal{H}_{\text{mal}}$)
+Decoupled scalar projection predicting pathological malignancy:
 
-2. **Mass Margin Morphological Head ($\mathcal{H}_{\text{margin}}$):**
-   Projects into the 4 standard ACR BI-RADS margin categories:
-   $$\mathcal{C}_{\text{margin}} = \{\text{circumscribed}, \text{indistinct}, \text{obscured}, \text{spiculated}\}$$
-   $$\mathbf{z}_{\text{margin}} \in \mathbb{R}^4, \quad \mathbf{p}_{\text{margin}} = \text{Softmax}(\mathbf{z}_{\text{margin}})$$
+$$
+z_{\text{mal}} = \mathbf{W}_2 \left( \text{Dropout}_{0.3} \left( \text{SiLU}\left(\text{BN}\left(\mathbf{W}_1 \mathbf{f}_{\text{fused}}\right)\right) \right) \right) + b_2 \in \mathbb{R}^1
+$$
 
-3. **Calcification Micro-Morphology Head ($\mathcal{H}_{\text{calc}}$):**
-   Projects into the 5 diagnostic calcification morphology classes:
-   $$\mathcal{C}_{\text{calc}} = \{\text{amorphous}, \text{coarse}, \text{fine\_linear\_branching}, \text{pleomorphic}, \text{punctate}\}$$
-   $$\mathbf{z}_{\text{calc}} \in \mathbb{R}^5, \quad \mathbf{p}_{\text{calc}} = \text{Softmax}(\mathbf{z}_{\text{calc}})$$
+$$
+p_{\text{mal}} = \sigma(z_{\text{mal}}) = \frac{1}{1 + \exp(-z_{\text{mal}})}
+$$
 
-4. **Ordinal Cumulative BI-RADS Assessment Head ($\mathcal{H}_{\text{birads}}$):**
-   BI-RADS categories $[2, 3, 4, 5]$ exhibit natural monotonic ordering. Standard cross-entropy treats category boundaries symmetrically, discarding ordering penalties. We formulate this head using cumulative ordinal link regression over $K - 1 = 3$ threshold cutoffs:
-   $$z_{\text{birads}}^{(k)} = \mathbf{w}_k^T \phi(\mathbf{f}_{\text{fused}}) + b_k, \quad k \in \{0, 1, 2\}$$
-   $$P(\text{BI-RADS} > k + 2 \mid \mathbf{f}_{\text{fused}}) = \sigma(z_{\text{birads}}^{(k)})$$
+#### Head 2: Mass Margin Morphological Classification ($\mathcal{H}_{\text{margin}}$)
+Projects into the 4 standard ACR BI-RADS margin categories $\mathcal{C}_{\text{margin}} = \{\text{circumscribed}, \, \text{indistinct}, \, \text{obscured}, \, \text{spiculated}\}$:
+
+$$
+\mathbf{z}_{\text{margin}} \in \mathbb{R}^4, \quad \mathbf{p}_{\text{margin}} = \text{softmax}(\mathbf{z}_{\text{margin}})
+$$
+
+#### Head 3: Calcification Micro-Morphology Classification ($\mathcal{H}_{\text{calc}}$)
+Projects into the 5 diagnostic calcification morphology classes $\mathcal{C}_{\text{calc}} = \{\text{amorphous}, \, \text{coarse}, \, \text{fine linear branching}, \, \text{pleomorphic}, \, \text{punctate}\}$:
+
+$$
+\mathbf{z}_{\text{calc}} \in \mathbb{R}^5, \quad \mathbf{p}_{\text{calc}} = \text{softmax}(\mathbf{z}_{\text{calc}})
+$$
+
+#### Head 4: Ordinal Cumulative BI-RADS Assessment ($\mathcal{H}_{\text{birads}}$)
+BI-RADS categories $[2, 3, 4, 5]$ exhibit natural monotonic ordering. Standard cross-entropy treats category boundaries symmetrically, discarding ordering penalties. We formulate this head using cumulative ordinal link regression over $K - 1 = 3$ threshold cutoffs:
+
+$$
+z_{\text{birads}}^{(k)} = \mathbf{w}_k^T \phi(\mathbf{f}_{\text{fused}}) + b_k, \quad k \in \{0, 1, 2\}
+$$
+
+$$
+P(\text{BI-RADS} > k + 2 \mid \mathbf{f}_{\text{fused}}) = \sigma\left(z_{\text{birads}}^{(k)}\right)
+$$
 
 ### 4.4 Interpretability via Dual-View Spatial Grad-CAM
 Spatial interpretability maps are generated dynamically via Gradient-Weighted Class Activation Mapping (Grad-CAM) targeting the penultimate convolutional feature maps $A^k \in \mathbb{R}^{H' \times W'}$ of the shared backbone:
 
-$$\alpha_k^c = \frac{1}{Z} \sum_{i=1}^{H'} \sum_{j=1}^{W'} \frac{\partial y^c}{\partial A^k(i, j)}$$
+$$
+\alpha_k^c = \frac{1}{Z} \sum_{i=1}^{H'} \sum_{j=1}^{W'} \frac{\partial y^c}{\partial A^k(i, j)}
+$$
 
-$$L_{\text{Grad-CAM}}^c(x, y) = \text{ReLU}\left(\sum_k \alpha_k^c \, A^k(x, y)\right)$$
+$$
+L_{\text{Grad-CAM}}^c(x, y) = \text{ReLU}\left(\sum_k \alpha_k^c \, A^k(x, y)\right)
+$$
 
 The continuous scalar field $L_{\text{Grad-CAM}}^c$ is bilinearly upsampled to $512 \times 512$, thresholded at the $85\text{th}$ percentile of maximum activation intensity, and mapped to precise spatial bounding boxes $[y_{\min}, x_{\min}, y_{\max}, x_{\max}]$ for simultaneous visualization alongside CC and MLO raster views.
 
@@ -293,11 +353,15 @@ A local LLM supervisor engine (`src/orchestration/llm_supervisor.py`) evaluates 
 
 The supervisor calculates a calibrated confidence interval around the malignancy estimation:
 
-$$\text{CI}_{95\%} = \hat{p} \pm 1.96 \cdot \sqrt{\frac{\hat{p}(1 - \hat{p})}{N_{\text{eff}}}}$$
+$$
+\text{CI}_{0.95} = \hat{p} \pm 1.96 \cdot \sqrt{\frac{\hat{p}(1 - \hat{p})}{N_{\text{eff}}}}
+$$
 
 When the model confidence falls within an ambiguous risk corridor ($\tau_{\text{low}} < \hat{p} < \tau_{\text{high}}$) or when the primary visual specialist and secondary tabular profiles exhibit divergence:
 
-$$\text{TriageDecision} = \begin{cases} \text{AUTONOMOUS\_TRIAGE}, & \text{if } \hat{p} \notin [\tau_{\text{low}}, \tau_{\text{high}}] \land \Delta_{\text{agents}} \le \epsilon \\ \text{DEFER\_TO\_HUMAN\_PANEL}, & \text{otherwise} \end{cases}$$
+$$
+\text{TriageDecision} = \begin{cases} \text{Autonomous Triage}, & \text{if } \hat{p} \notin [\tau_{\text{low}}, \, \tau_{\text{high}}] \land \Delta_{\text{agents}} \le \epsilon \\ \text{Defer to Expert Panel}, & \text{otherwise} \end{cases}
+$$
 
 Cases flagged for deferral bypass automated triage and generate an escalation package with all Grad-CAM bounding coordinates, multi-task attribute vectors, and provenance hashes for senior radiologist consultation.
 
