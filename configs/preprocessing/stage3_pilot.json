@@ -1,0 +1,21 @@
+{
+  "output_size": 512,
+  "mask_max_dimension": 512,
+  "otsu_bins": 256,
+  "minimum_mask_coverage": 0.08,
+  "maximum_mask_coverage": 0.92,
+  "minimum_component_retention": 0.8,
+  "minimum_bbox_extent": 0.1,
+  "closing_kernel": 5,
+  "expansion_kernel": 3,
+  "percentile_low": 0.5,
+  "percentile_high": 99.5,
+  "clahe_tiles_y": 8,
+  "clahe_tiles_x": 8,
+  "clahe_clip_limit": 2.0,
+  "crop_margin_fraction": 0.02,
+  "minimum_intensity_span": 32.0,
+  "sample_policy": "first three lexicographically sorted training patients with both LEFT and RIGHT cohort pairs",
+  "dataset_mean_std_normalization": "deferred until full training-cohort statistics are approved",
+  "orientation_policy": "preserve original DICOM raster; never horizontally flip; flag source-side/view metadata conflicts"
+}

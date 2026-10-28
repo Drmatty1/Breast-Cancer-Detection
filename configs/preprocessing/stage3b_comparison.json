@@ -1,0 +1,16 @@
+{
+  "sample_patient_ids": ["P_00008", "P_00021", "P_00112"],
+  "partition": "train",
+  "pair_count": 6,
+  "views_per_pair": ["CC", "MLO"],
+  "configurations": {
+    "A": {"description": "Existing Stage 3 baseline, unchanged", "clahe_clip_limit": 2.0, "crop_margin_fraction": 0.02},
+    "B": {"description": "Milder CLAHE; all other settings equal A", "clahe_clip_limit": 1.0, "crop_margin_fraction": 0.02},
+    "C": {"description": "Tighter breast-mask bounding-box crop; baseline CLAHE", "clahe_clip_limit": 2.0, "crop_margin_fraction": 0.005, "effective_minimum_margin_pixels": 2}
+  },
+  "output_size": 512,
+  "aspect_ratio_policy": "Preserve crop aspect ratio, resize longest dimension to output_size, center-pad short dimension",
+  "orientation_policy": "Preserve raster orientation; do not horizontally flip",
+  "normalization": "Same per-image mask percentile normalization (0.5, 99.5); no dataset mean/std",
+  "reference_clahe_crosscheck": "Not run: OpenCV/scikit-image unavailable and no cached wheel in restricted-network environment"
+}

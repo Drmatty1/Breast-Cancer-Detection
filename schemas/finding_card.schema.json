@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MammographyAgentFindingCard",
+  "description": "Standardized Finding Card schema for the Mammography Agent as specified in methodology §3.4.",
+  "type": "object",
+  "required": [
+    "agent",
+    "finding",
+    "BI_RADS_a",
+    "conf_a",
+    "sal",
+    "sh",
+    "rationale"
+  ],
+  "properties": {
+    "agent": {
+      "type": "string",
+      "enum": ["mammo", "clin"],
+      "description": "Identifier of the emitting perception agent."
+    },
+    "finding": {
+      "type": "object",
+      "description": "Perception findings covering lesion presence, margin, and calcification morphology.",
+      "required": ["lesion"],
+      "properties": {
+        "lesion": {
+          "type": ["string", "null"],
+          "description": "Status of lesion finding (e.g. present, malignant, benign, unavailable)."
+        },
+        "margin": {
+          "type": ["string", "null"],
+          "description": "Mass margin classification (circumscribed, indistinct, obscured, spiculated, or null/unavailable if non-mass)."
+        },
+        "calcification": {
+          "type": ["string", "null"],
+          "description": "Calcification morphology classification (amorphous, coarse, fine_linear_branching, pleomorphic, punctate, or null/unavailable if non-calc)."
+        }
+      },
+      "additionalProperties": true
+    },
+    "BI_RADS_a": {
+      "type": "string",
+      "description": "Agent-predicted BI-RADS diagnostic category (e.g. 2, 3, 4, 4A, 4B, 4C, 5, or unspecified)."
+    },
+    "conf_a": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Calibrated decision confidence score in [0.0, 1.0]."
+    },
+    "sal": {
+      "type": "object",
+      "description": "Explainability and saliency attribution artifacts.",
+      "required": ["top_regions"],
+      "properties": {
+        "path": {
+          "type": ["string", "null"],
+          "description": "File path to the generated saliency overlay image."
+        },
+        "top_regions": {
+          "type": "array",
+          "description": "List of bounding box regions of interest [[ymin, xmin, ymax, xmax]].",
+          "items": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "cc_path": { "type": ["string", "null"] },
+        "mlo_path": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "sh": {
+      "type": "object",
+      "description": "Clinical header / metadata container (empty object if perception agent operates image-only).",
+      "additionalProperties": true
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Natural language summary rationale synthesized from perception findings."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Governance, audit, and model provenance metadata.",
+      "properties": {
+        "model_architecture": { "type": "string" },
+        "checkpoint_source": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "disclaimer": { "type": "string" },
+        "task_probabilities": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

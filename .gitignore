@@ -1,0 +1,102 @@
+# ==============================================================================
+# GITIGNORE: Breast-Cancer-Detection Repository
+# Enforces strictly code, schemas, configs, and holdout metadata.
+# ==============================================================================
+
+# Virtual Environments and Python Caching
+.venv/
+.venv_*/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Local Secrets & Configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Raw & Processed Datasets (Strictly Excluded)
+data/
+/metadata/
+**/DICOM/
+**/dicom/
+**/*.dcm
+**/*.dicom
+**/*.npy
+**/*.npz
+**/*.h5
+**/*.hdf5
+**/*.parquet
+
+# Research Reports, Documentations, and Formats (Strictly Excluded per Protocol)
+reports/
+docs/
+test1/
+outputs/
+artifacts/
+predictions/
+saliency/
+gradcam/
+*.docx
+*.doc
+*.pdf
+*.pptx
+*.xlsx
+*.csv.gz
+
+# Model Weights, Tensors, and Serialized Checkpoints (Strictly Excluded)
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.keras
+*.pkl
+*.pickle
+*.joblib
+rsna_csir_handoff_best/
+rsna_v5_model_package/
+
+# Archives & Temporary Artifacts
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+tau
+
+# Specific Root Research & Decision Docs
+DECISIONS.md
+extracted_refs.json
+pdf_format_full.txt
+
+# Report Generation Scripts (Skip report generation scripts, retain core methodology scripts)
+scripts/build_final_btech_project_report.py
+scripts/build_user_version_rp1.py
+scripts/create_v2_reports.py
+scripts/generate_rp2_coding_doc.py
+scripts/merge_user_docs_with_fixed_ch56.py
+
+# Holdout Folder Restrictions:
+# Exclude images, results, audit logs, ground truth, and markdown from RP2 transfer
+RP2_LOCAL_HOLDOUT_TRANSFER/audit_logs/
+RP2_LOCAL_HOLDOUT_TRANSFER/evaluation_ground_truth/
+RP2_LOCAL_HOLDOUT_TRANSFER/images/
+RP2_LOCAL_HOLDOUT_TRANSFER/results/
+RP2_LOCAL_HOLDOUT_TRANSFER/README.md
+
+# Explicitly ensure RP2 metadata is retained
+!RP2_LOCAL_HOLDOUT_TRANSFER/metadata/
+!RP2_LOCAL_HOLDOUT_TRANSFER/metadata/**
