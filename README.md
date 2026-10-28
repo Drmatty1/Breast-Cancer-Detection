@@ -142,14 +142,22 @@ Raw DICOM ──► Photometric Decoupling ──► Otsu Tissue Mask ──► 
 ### 3.1 Radiometric Calibration & Polarity Normalization
 Mammograms encoded with `PhotometricInterpretation = "MONOCHROME1"` map high radiopacity (dense tissue) to low numerical pixel intensities. To normalize input manifolds for standard convolutional feature extraction, we execute an exact linear inversion over the valid pixel domain $\Omega_{\text{valid}}$:
 
-$$
-I_{\text{norm}}(x,y) = \begin{cases} I_{\max} + I_{\min} - I_{\text{raw}}(x,y), & \text{if } \text{Photometric} = \text{MONOCHROME1} \\ I_{\text{raw}}(x,y), & \text{if } \text{Photometric} = \text{MONOCHROME2} \end{cases}
-$$
-
-Pixels outside the active detector collimation field or marked by non-finite IEEE-754 states (`NaN`, `Inf`) are sanitized via logical masking:
+- For `MONOCHROME1` detectors (inverted polarity):
 
 $$
-\Omega_{\text{valid}} = \left\{ (x,y) \in \Omega \mid I_{\text{raw}}(x,y) \in \mathbb{R} \land I_{\text{raw}}(x,y) \ne p_{\text{pad}} \right\}
+I_{\text{norm}}(x,y) = I_{\max} + I_{\min} - I_{\text{raw}}(x,y)
+$$
+
+- For `MONOCHROME2` detectors (standard polarity):
+
+$$
+I_{\text{norm}}(x,y) = I_{\text{raw}}(x,y)
+$$
+
+Pixels outside the active detector collimation field or marked by non-finite IEEE-754 states (`NaN`, `Inf`) are sanitized via logical domain masking:
+
+$$
+\Omega_{\text{valid}} = \lbrace (x,y) \in \Omega \mid I_{\text{raw}}(x,y) \in \mathbb{R} \;\land\; I_{\text{raw}}(x,y) \ne p_{\text{pad}} \rbrace
 $$
 
 ### 3.2 Dynamic Bi-Level Otsu Segmentation
@@ -184,7 +192,7 @@ $$
 \left[\mathcal{M} \ominus B\right](x,y) = \inf_{(u,v) \in B} \mathcal{M}(x+u, \, y+v)
 $$
 
-Connected component analysis (CCA) evaluates all disjoint connected regions $\mathcal{C} = \{C_1, C_2, \dots, C_m\}$. The primary breast component $C_{\max} = \arg\max_j |C_j|$ is retained subject to the mass preservation constraint:
+Connected component analysis (CCA) evaluates all disjoint connected regions $\mathcal{C} = \lbrace C_1, C_2, \dots, C_m \rbrace$. The primary breast component $C_{\max} = \arg\max_j |C_j|$ is retained subject to the mass preservation constraint:
 
 $$
 \rho = \frac{|C_{\max}|}{\sum_{j=1}^m |C_j|} \ge 0.80
@@ -293,14 +301,14 @@ p_{\text{mal}} = \sigma(z_{\text{mal}}) = \frac{1}{1 + \exp(-z_{\text{mal}})}
 $$
 
 #### Head 2: Mass Margin Morphological Classification ($\mathcal{H}_{\text{margin}}$)
-Projects into the 4 standard ACR BI-RADS margin categories $\mathcal{C}_{\text{margin}} = \{\text{circumscribed}, \, \text{indistinct}, \, \text{obscured}, \, \text{spiculated}\}$:
+Projects into the 4 standard ACR BI-RADS margin categories $\mathcal{C}_{\text{margin}} = \lbrace \text{circumscribed}, \, \text{indistinct}, \, \text{obscured}, \, \text{spiculated} \rbrace$:
 
 $$
 \mathbf{z}_{\text{margin}} \in \mathbb{R}^4, \quad \mathbf{p}_{\text{margin}} = \text{softmax}(\mathbf{z}_{\text{margin}})
 $$
 
 #### Head 3: Calcification Micro-Morphology Classification ($\mathcal{H}_{\text{calc}}$)
-Projects into the 5 diagnostic calcification morphology classes $\mathcal{C}_{\text{calc}} = \{\text{amorphous}, \, \text{coarse}, \, \text{fine linear branching}, \, \text{pleomorphic}, \, \text{punctate}\}$:
+Projects into the 5 diagnostic calcification morphology classes $\mathcal{C}_{\text{calc}} = \lbrace \text{amorphous}, \, \text{coarse}, \, \text{fine linear branching}, \, \text{pleomorphic}, \, \text{punctate} \rbrace$:
 
 $$
 \mathbf{z}_{\text{calc}} \in \mathbb{R}^5, \quad \mathbf{p}_{\text{calc}} = \text{softmax}(\mathbf{z}_{\text{calc}})
@@ -360,7 +368,11 @@ $$
 When the model confidence falls within an ambiguous risk corridor ($\tau_{\text{low}} < \hat{p} < \tau_{\text{high}}$) or when the primary visual specialist and secondary tabular profiles exhibit divergence:
 
 $$
-\text{TriageDecision} = \begin{cases} \text{Autonomous Triage}, & \text{if } \hat{p} \notin [\tau_{\text{low}}, \, \tau_{\text{high}}] \land \Delta_{\text{agents}} \le \epsilon \\ \text{Defer to Expert Panel}, & \text{otherwise} \end{cases}
+\text{TriageDecision} = \text{Autonomous Triage} \quad \iff \quad \hat{p} \notin [\tau_{\text{low}}, \, \tau_{\text{high}}] \;\land\; \Delta_{\text{agents}} \le \epsilon
+$$
+
+$$
+\text{TriageDecision} = \text{Defer to Expert Panel} \quad \iff \quad \hat{p} \in [\tau_{\text{low}}, \, \tau_{\text{high}}] \;\lor\; \Delta_{\text{agents}} > \epsilon
 $$
 
 Cases flagged for deferral bypass automated triage and generate an escalation package with all Grad-CAM bounding coordinates, multi-task attribute vectors, and provenance hashes for senior radiologist consultation.
